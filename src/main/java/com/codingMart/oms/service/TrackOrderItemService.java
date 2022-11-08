@@ -16,9 +16,11 @@ public class TrackOrderItemService {
 		this.trackRepository = trackRepository;
 	}
 
-
 	public TrackOrderItem getByItem(Item item) {
 		return trackRepository.findByItem(item);	
 	}
 	
+	public TrackOrderItem saveTrackOrderItem(TrackOrderItem track) {
+		return trackRepository.save(track);
+	}
 }

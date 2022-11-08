@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.codingMart.oms.Status;
+import com.codingMart.oms.Dto.ProcessReturn;
+import com.codingMart.oms.Dto.RequestReturn;
 import com.codingMart.oms.common.APIResponse;
 import com.codingMart.oms.entity.Item;
 import com.codingMart.oms.service.ItemService;
@@ -71,8 +73,12 @@ public class ItemController {
 	}
 	
 	@PutMapping("/requestReturn")
-	public APIResponse requestReturn(@RequestBody Item item) {
-		return service.requestReturn(item);
+	public APIResponse requestReturn(@RequestBody RequestReturn req) {
+		return service.requestReturn(req);
 	}
 	
+	@PutMapping("/processReturn")
+	public APIResponse processReturn(@RequestBody ProcessReturn ret) {
+		return service.processReturn(ret);
+	}
 }

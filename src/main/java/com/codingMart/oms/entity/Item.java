@@ -1,7 +1,6 @@
 package com.codingMart.oms.entity;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -9,11 +8,14 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
+import org.springframework.stereotype.Component;
+
 import com.codingMart.oms.Status;
 
+@Component
 @Entity
 @Table(name="item")
-public class Item implements Serializable{
+public class Item extends Auditable implements Serializable{
 	
 	private static final long serialVersionUID = 1L;
 
@@ -39,11 +41,11 @@ public class Item implements Serializable{
 	@Column
 	private Status status;
 	
-	@Column
-	private LocalDateTime createdAt;
-	
-	@Column
-	private LocalDateTime updatedAt;
+//	@Column
+//	private LocalDateTime createdAt;
+//	
+//	@Column
+//	private LocalDateTime updatedAt;
 
 	public long getId() {
 		return id;
@@ -101,21 +103,4 @@ public class Item implements Serializable{
 		this.status = status;
 	}
 
-	public LocalDateTime getCreatedAt() {
-		return createdAt;
-	}
-
-	public void setCreatedAt(LocalDateTime createdAt) {
-		this.createdAt = createdAt;
-	}
-
-	public LocalDateTime getUpdatedAt() {
-		return updatedAt;
-	}
-
-	public void setUpdatedAt(LocalDateTime updatedAt) {
-		this.updatedAt = updatedAt;
-	}
-	
-	
 }

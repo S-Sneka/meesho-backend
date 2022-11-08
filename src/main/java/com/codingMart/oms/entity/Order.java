@@ -1,6 +1,5 @@
 package com.codingMart.oms.entity;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import javax.persistence.CascadeType;
@@ -17,7 +16,7 @@ import javax.persistence.Table;
 
 @Entity
 @Table(name="order")
-public class Order{
+public class Order extends Auditable{
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,11 +28,11 @@ public class Order{
 	@Column
 	private long userId;
 
-	@Column
-	private LocalDateTime createdAt;
-	
-	@Column
-	private LocalDateTime updatedAt;
+//	@Column
+//	private LocalDateTime createdAt;
+//	
+//	@Column
+//	private LocalDateTime updatedAt;
 	
 	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY )
 	private List<Item> items;
@@ -66,21 +65,21 @@ public class Order{
 		this.userId = userId;
 	}
 	
-	public LocalDateTime getCreatedAt() {
-		return createdAt;
-	}
-	
-	public void setCreatedAt(LocalDateTime createdAt) {
-		this.createdAt = createdAt;
-	}
-	
-	public LocalDateTime getUpdatedAt() {
-		return updatedAt;
-	}
-	
-	public void setUpdatedAt(LocalDateTime updatedAt) {
-		this.updatedAt = updatedAt;
-	}
+//	public LocalDateTime getCreatedAt() {
+//		return createdAt;
+//	}
+//	
+//	public void setCreatedAt(LocalDateTime createdAt) {
+//		this.createdAt = createdAt;
+//	}
+//	
+//	public LocalDateTime getUpdatedAt() {
+//		return updatedAt;
+//	}
+//	
+//	public void setUpdatedAt(LocalDateTime updatedAt) {
+//		this.updatedAt = updatedAt;
+//	}
 	
 	public List<Item> getItems() {
 		return items;

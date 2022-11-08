@@ -1,45 +1,47 @@
 package com.codingMart.oms.service;
 
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.codingMart.oms.Status;
+import com.codingMart.oms.Dto.ProcessReturn;
+import com.codingMart.oms.Dto.RequestReturn;
 import com.codingMart.oms.common.APIResponse;
 import com.codingMart.oms.entity.Item;
 import com.codingMart.oms.entity.TrackOrderItem;
 import com.codingMart.oms.exception.IdNotFoundException;
 import com.codingMart.oms.exception.StatusException;
 import com.codingMart.oms.repository.ItemRepository;
-import com.codingMart.oms.repository.TrackOrderItemRepository;
 
 @Service
 public class ItemService {
 	
 	private ItemRepository repository;
 	private APIResponse apiResponse;
-	private TrackOrderItemRepository trackingRepository;
 	private TrackOrderItemService trackService;
+	private TwilioService twilioService;
 	private TrackOrderItem track;
-	private LocalDateTime dt;
 	private Item item;
 	private String itemId;
 	
-	public ItemService(ItemRepository repository,APIResponse apiResponse,TrackOrderItemRepository trackingRepository,TrackOrderItemService trackService){
+	public ItemService(ItemRepository repository,APIResponse apiResponse,TrackOrderItem track,TrackOrderItemService trackService,Item item,TwilioService twilioService){
 		this.repository = repository;
 		this.apiResponse = apiResponse;
-		this.trackingRepository = trackingRepository;
 		this.trackService = trackService;
+		this.track = track;
+		this.item = item;
+		this.twilioService = twilioService;
 	}
 	
 	//Read
 	public APIResponse getItemById(String itemId){
 		item = repository.findByItemId(itemId);	
 		if(item!=null) {
-			apiResponse.setData(item);	
+			track = trackService.getByItem(item);
+			apiResponse.setData(track);	
 			apiResponse.setStatus(HttpStatus.OK.value());
 			apiResponse.setError(null);
 		}
@@ -81,8 +83,7 @@ public class ItemService {
 		itemId = updItem.getItemId();
 		item = repository.findByItemId(itemId);
 		if(item!=null) {
-			int itemStatus = item.getStatus().ordinal();
-			if(itemStatus==0 ||itemStatus==2 || itemStatus==3) {
+			if(item.getStatus() == Status.ORDERED ||item.getStatus() == Status.DISPATCHED || item.getStatus() == Status.SHIPPED) {
 				item.setDispatcherId(updItem.getDispatcherId());
 				apiResponse.setData(repository.save(item));
 				apiResponse.setError(null);
@@ -102,25 +103,32 @@ public class ItemService {
 		itemId = updItem.getItemId();
 		item = repository.findByItemId(itemId);
 		if(item!=null) {
-			int status = item.getStatus().ordinal();
-			int updStatus = updItem.getStatus().ordinal();
-			if(updStatus==2 || updStatus==3){
-				if(status==0 || (status==2 && updStatus==3)){
+			if(updItem.getStatus()==Status.DISPATCHED || updItem.getStatus()==Status.SHIPPED){
+				if(item.getStatus()==Status.ORDERED || (item.getStatus()==Status.DISPATCHED && updItem.getStatus()==Status.SHIPPED)){
 					item.setStatus(updItem.getStatus());
-					dt = LocalDateTime.now();
+					item = repository.save(item);
 					track = trackService.getByItem(item);
-					if(updStatus==2)
-						track.setDispatchedAt(dt);
-					else
-						track.setShippedAt(dt);
-					trackingRepository.save(track);
-					item.setUpdatedAt(dt);
-					apiResponse.setData(repository.save(item));
+					String messege;
+					if(updItem.getStatus()==Status.DISPATCHED) {
+						track.setDispatchedAt(item.getUpdatedAt());
+						messege = "Your order has been dispatched at "+item.getUpdatedAt()+"."
+								+ "You can track your order using Item Id: "+item.getItemId();
+					}
+					else {
+						track.setShippedAt(item.getUpdatedAt());
+						messege = "Your order has been shipped at "+item.getUpdatedAt()+"."+
+						"You can track your order using Item Id: "+item.getItemId();
+					}
+					trackService.saveTrackOrderItem(track);
+					String mobNum = "+919715382994";
+					twilioService.sendSMS(messege, mobNum);
+					apiResponse.setData(track);
 					apiResponse.setError(null);
 					apiResponse.setStatus(HttpStatus.OK.value());
 				}
 				else {
-					throw new StatusException("Could not "+ ((updStatus==2)?"dispatch":"ship") +" the item that is "+item.getStatus());
+					throw new StatusException("Could not "+ ((updItem.getStatus()==Status.DISPATCHED)?"dispatch":"ship") +
+							" the item that is "+item.getStatus());
 				}	
 			}
 			else {
@@ -137,25 +145,25 @@ public class ItemService {
 		itemId = updItem.getItemId();
 		item = repository.findByItemId(itemId);
 		if(item!=null) {
-			int status = item.getStatus().ordinal();
-			if(status==3 || status==2){
+			if(item.getStatus()==Status.SHIPPED || item.getStatus()==Status.DISPATCHED){
 				if(item.getDispatcherId()!=0) {
 					item.setStatus(Status.DELIVERED);
-					dt = LocalDateTime.now();
+					item = repository.save(item);
 					track = trackService.getByItem(item);
-					track.setDeliveredAt(dt);
-					trackingRepository.save(track);
-					item.setUpdatedAt(dt);
-					apiResponse.setData(repository.save(item));
+					track.setDeliveredAt(item.getUpdatedAt());
+					trackService.saveTrackOrderItem(track);
+					String messege = "Your Order has been delivered successfully at "+item.getUpdatedAt();
+					String mobNum = "+919715382994";
+					twilioService.sendSMS(messege, mobNum);
+					apiResponse.setData(track);
 					apiResponse.setError(null);
 					apiResponse.setStatus(HttpStatus.OK.value());
-					trackingRepository.save(track);
 				}
 				else {
 					throw new StatusException("Dispatcher ID is not added yet. Couldn't deliver the item.");
 				}
 			}
-			else if(status==0) {
+			else if(item.getStatus()==Status.ORDERED) {
 				throw new StatusException("Item not yet dispatched");
 			}
 			else {
@@ -172,15 +180,16 @@ public class ItemService {
 		itemId = updItem.getItemId();
 		item = repository.findByItemId(itemId);
 		if(item!=null) {
-			int itemStatus = item.getStatus().ordinal();
 			track = trackService.getByItem(item);
-			if(itemStatus==0 ||itemStatus==2 || itemStatus==3) {
+			if(item.getStatus()==Status.ORDERED ||item.getStatus()==Status.DISPATCHED || item.getStatus()==Status.SHIPPED) {
 				item.setStatus(Status.CANCELLED);
-				dt = LocalDateTime.now();
-				track.setCancelledAt(dt);
-				trackingRepository.save(track);
-				item.setUpdatedAt(dt);
-				apiResponse.setData(repository.save(item));
+				item = repository.save(item);
+				track.setCancelledAt(item.getUpdatedAt());
+				trackService.saveTrackOrderItem(track);
+				String messege = "Your Order has been cancelled at "+item.getUpdatedAt();
+				String mobNum = "+919715382994";
+				twilioService.sendSMS(messege, mobNum);
+				apiResponse.setData(track);
 				apiResponse.setError(null);
 				apiResponse.setStatus(HttpStatus.OK.value());
 			}
@@ -194,19 +203,22 @@ public class ItemService {
 		return apiResponse;
 	}
 	
-		public APIResponse requestReturn(Item updItem) {
-			itemId = updItem.getItemId();
+		public APIResponse requestReturn(RequestReturn req) {
+			itemId = req.getItemId();
 			item = repository.findByItemId(itemId);
 			if(item!=null) {
-				int itemStatus = item.getStatus().ordinal();
-				if(itemStatus==4){
-					dt = LocalDateTime.now();
+				if(item.getStatus()==Status.DELIVERED){
 					track = trackService.getByItem(item);
 					track.setRequestReturn(true);
-					track.setCancelledAt(dt);
-					item.setUpdatedAt(dt);
-					trackingRepository.save(track);
-					apiResponse.setData(repository.save(item));
+					track.setReasonForReturn(req.getReason());
+					item.setUpdatedAt(null);
+					item = repository.save(item);
+					trackService.saveTrackOrderItem(track);
+					String messege = "Your request to 'return the order' has been placed at "+ item.getUpdatedAt()
+					+ ".We will notify you on the status of your request after inspecting the queries.";
+					String mobNum = "+919715382994";
+					twilioService.sendSMS(messege, mobNum);
+					apiResponse.setData(track);
 					apiResponse.setError(null);
 					apiResponse.setStatus(HttpStatus.OK.value());
 				}
@@ -220,25 +232,80 @@ public class ItemService {
 			return apiResponse;
 		}
 		
+		public APIResponse processReturn(ProcessReturn ret) {
+			itemId = ret.getItemId();
+			item = repository.findByItemId(itemId);
+			if(item!=null) {
+				if(item.getStatus()==Status.DELIVERED){
+					track = trackService.getByItem(item);
+					if(track.isRequestReturn()) {
+						if(ret.isAccept()) {
+							track.setAcceptReturn(true);
+							trackService.saveTrackOrderItem(track);
+							item.setUpdatedAt(null);
+							item = repository.save(item);
+							String messege = "Your request to 'return the order' has been accepted at "+
+									item.getUpdatedAt()+ "We will collect your order within 2 0r 3 business days.";
+							String mobNum = "+919715382994";
+							twilioService.sendSMS(messege, mobNum);
+							apiResponse.setData(track);
+							apiResponse.setError(null);
+							apiResponse.setStatus(HttpStatus.OK.value());
+						}
+						else {
+							track.setAcceptReturn(false);
+							trackService.saveTrackOrderItem(track);
+							item.setUpdatedAt(null);
+							item = repository.save(item);
+							String messege = "Your request to 'return the order' has been rejected at "+item.getUpdatedAt();
+							String mobNum = "+919715382994";
+							twilioService.sendSMS(messege, mobNum);
+							apiResponse.setData(track);
+							apiResponse.setError(null);
+							apiResponse.setStatus(HttpStatus.OK.value());
+						}
+					}
+					else {
+						throw new StatusException("Request to return the order has not been placed");
+					}
+				}
+				else {
+					throw new StatusException("Could not process return for the item that is "+item.getStatus());
+				}
+			}
+			else {
+				throw new IdNotFoundException(itemId);
+			}
+			return apiResponse;
+		}
+		
 		public APIResponse returnItem(Item updItem) {
 			itemId = updItem.getItemId();
 			item = repository.findByItemId(itemId);
 			if(item!=null) {
-				int itemStatus = item.getStatus().ordinal();
 				track = trackService.getByItem(item);
 				if(track.isRequestReturn()) {
-					if(itemStatus==4) {
-						item.setStatus(Status.RETURNED);
-						dt = LocalDateTime.now();
-						track.setReturnedAt(dt);
-						trackingRepository.save(track);
-						item.setUpdatedAt(dt);
-						apiResponse.setData(repository.save(item));
-						apiResponse.setError(null);
-						apiResponse.setStatus(HttpStatus.OK.value());
+					if(track.isAcceptReturn()) {
+						if(item.getStatus()==Status.DELIVERED) {
+							item.setStatus(Status.RETURNED);
+							item = repository.save(item);
+							track.setReturnedAt(item.getUpdatedAt());
+							trackService.saveTrackOrderItem(track);
+							String messege = "Your order has been returned at "+item.getUpdatedAt()
+									+ "We’ve processed your refund, and you should expect to see the amount "
+									+ "credited to your account in about 3 to 5 business days.";
+							String mobNum = "+918939237950";
+							twilioService.sendSMS(messege, mobNum);
+							apiResponse.setData(track);
+							apiResponse.setError(null);
+							apiResponse.setStatus(HttpStatus.OK.value());
+						}
+						else {
+							throw new StatusException("Could not return the item that is "+item.getStatus());
+						}
 					}
 					else {
-						throw new StatusException("Could not return the item that is "+item.getStatus());
+						throw new StatusException("Request to return has been rejected.");
 					}
 				}
 				else {

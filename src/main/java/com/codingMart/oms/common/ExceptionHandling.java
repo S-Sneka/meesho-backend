@@ -33,12 +33,12 @@ public class ExceptionHandling {
         return ResponseEntity.status(HttpStatus.OK.value()).body(apiResponse);
     }
 
-    @ExceptionHandler()
-    public ResponseEntity<APIResponse> handleException(Exception e){
-    	apiResponse.setData(null);
-    	apiResponse.setError("Unknown error Occured");
-    	apiResponse.setStatus(HttpStatus.OK.value());
-    	
-    	return ResponseEntity.status(HttpStatus.OK.value()).body(apiResponse);
-    }
+//    @ExceptionHandler()
+//    public ResponseEntity<APIResponse> handleException(Exception e){
+//    	apiResponse.setData(null);
+//    	apiResponse.setError("Unknown error Occured");
+//    	apiResponse.setStatus(HttpStatus.OK.value());
+//    	
+//    	return ResponseEntity.status(HttpStatus.OK.value()).body(apiResponse);
+//    }
 }

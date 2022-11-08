@@ -10,8 +10,6 @@ import com.codingMart.oms.common.APIResponse;
 import com.codingMart.oms.entity.Order;
 import com.codingMart.oms.service.OrderService;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/order")
 public class OrderController {
@@ -25,12 +23,7 @@ public class OrderController {
 	public APIResponse addCustomer(@RequestBody Order order){
 		return service.saveOrder(order);
 	}
-	
-	@PostMapping("/addMany")
-	public APIResponse addOrders(@RequestBody List<Order> orders) {
-		return service.saveOrders(orders);
-	}
-	
+
 	@GetMapping("/all")
 	public APIResponse findAllOrders(){
 		return service.getOrders();
